@@ -46,7 +46,8 @@ func CommandWikiBuild() *cobra.Command {
 			var err error
 			switch export_format {
 			case "pb":
-				outputFileNameFull := filepath.Clean(filepath.Join(".", filepath.Clean(outputFileName+".pb")))
+				//outputFileNameFull := filepath.Clean(filepath.Join(".", filepath.Clean(outputFileName+".pb")))
+				outputFileNameFull := filepath.Clean(outputFileName + ".pb")
 				outputFile, err := os.Create(outputFileNameFull)
 				if err != nil {
 					log.Panic(err)

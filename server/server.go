@@ -203,6 +203,7 @@ func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Wo
 
 func GetModel(path string) *schematree.SchemaTree {
 	modelBinary := fmt.Sprintf("/home/aducu/testdata/%s.tsv.schemaTree.typed.pb", path)
+	// modelBinary := fmt.Sprintf("testdata/%s.tsv.schemaTree.typed.pb", path)
 
 	cleanedmodelBinary := filepath.Clean(modelBinary)
 
