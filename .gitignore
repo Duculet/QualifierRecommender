@@ -1,2 +1,8 @@
 .DS_Store
 Qrecommender
+Qrec
+.gitignore
+testdata/P50.tsv.schemaTree.typed.pb
+testdata/P50Old.tsv
+testdata/P50.tsv
+testdata/P50Old.tsv.schemaTree.typed.pb
