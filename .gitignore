@@ -9,3 +9,5 @@ testdata/P50Old.tsv.schemaTree.typed.pb
 Qrec2
 .gitignore
 testdata/ALLTT.tsv.schemaTree.typed.pb
+QrecommenderOS
+testdata/ALLTTnottyped.tsv.schemaTree.typed.pb
