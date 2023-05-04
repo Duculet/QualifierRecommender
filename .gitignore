@@ -1,13 +1,4 @@
 .DS_Store
-Qrecommender
-Qrec
+Qrec*
 .gitignore
-testdata/P50.tsv.schemaTree.typed.pb
-testdata/P50Old.tsv
-testdata/P50.tsv
-testdata/P50Old.tsv.schemaTree.typed.pb
-Qrec2
-.gitignore
-testdata/ALLTT.tsv.schemaTree.typed.pb
-QrecommenderOS
-testdata/ALLTTnottyped.tsv.schemaTree.typed.pb
+testdata/*.tsv*

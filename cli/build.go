@@ -46,13 +46,16 @@ func CommandWikiBuild() *cobra.Command {
 			var err error
 			switch export_format {
 			case "pb":
-				//outputFileNameFull := filepath.Clean(filepath.Join(".", filepath.Clean(outputFileName+".pb")))
 				outputFileNameFull := filepath.Clean(outputFileName + ".pb")
 				outputFile, err := os.Create(outputFileNameFull)
 				if err != nil {
 					log.Panic(err)
 				}
 				err = schema.SaveProtocolBuffer(outputFile)
+				if err != nil {
+					log.Panicln(err)
+				}
+				err = outputFile.Close()
 				if err != nil {
 					log.Panicln(err)
 				}
