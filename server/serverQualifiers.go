@@ -52,7 +52,7 @@ func LoadAllModels(models_dir string) {
 		if !item.IsDir() {
 			if strings.HasSuffix(item.Name(), ".tsv.schemaTree.typed.pb") {
 				id := strings.TrimSuffix(item.Name(), ".tsv.schemaTree.typed.pb")
-				model_path := filepath.Join(models_dir, item.Name())
+				model_path := filepath.Clean(filepath.Join(models_dir, item.Name()))
 				models[id] = GetModel(model_path)
 			}
 		}
