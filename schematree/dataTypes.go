@@ -26,11 +26,8 @@ func (p *IItem) increment() {
 // prefix t# identifies properties that represent types
 const typePrefix = "t#"
 
-const objTypePrefix = "o/"
-const subjTypePrefix = "s/"
-
 func (p *IItem) IsType() bool {
-	return strings.HasPrefix(*p.Str, typePrefix) || strings.HasPrefix(*p.Str, objTypePrefix) || strings.HasPrefix(*p.Str, subjTypePrefix)
+	return strings.HasPrefix(*p.Str, typePrefix)
 }
 
 func (p *IItem) IsProp() bool {
