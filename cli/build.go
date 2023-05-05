@@ -67,10 +67,6 @@ func CommandWikiBuild() *cobra.Command {
 				if err != nil {
 					log.Panicln(err)
 				}
-				err = outputFile.Close()
-				if err != nil {
-					log.Panicln(err)
-				}
 			default:
 				log.Panic("Format not reconized")
 
