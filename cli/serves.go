@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,23 +17,24 @@ func CommandWikiServes() *cobra.Command {
 	var workflowFile string // used by serve
 	var certFile string     // used by serve
 	var keyFile string      // used by serve
+	var hardLimit int       // used by serve
 
-	// subcommand serve
-	cmdServe := &cobra.Command{
-		Use:   "serves",
-		Short: "Serve a SchemaTree model via an HTTP Server",
-		Long: "Load the <model> (schematree binary) and the recommendation" +
+	// subcommand serves
+	cmdServes := &cobra.Command{
+		Use:   "serves <models-dir>",
+		Short: "Serve a multitude of SchemaTree models via an HTTP Server",
+		Long: "Load the models (schematree binaries) from <models-dir> and the recommendation" +
 			" endpoint using an HTTP Server.\nAvailable endpoints are stated in the server README.",
-		Args: cobra.ExactArgs(0),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
+			models_dir := filepath.Clean(args[0])
 
 			if (keyFile == "") != (certFile == "") {
 				log.Panicln("Either both --cert and --key must be set, or neither of them")
 			}
 
 			// Initiate the HTTP server. Make it stop on <Enter> press.
-			server.LoadAllModels()
-			router := server.SetupNewEndpoints(500)
+			router := server.SetupNewEndpoints(models_dir, workflowFile, hardLimit)
 
 			var server = &http.Server{
 				Addr:              fmt.Sprintf("0.0.0.0:%v", serveOnPort),
@@ -56,9 +58,10 @@ func CommandWikiServes() *cobra.Command {
 			}
 		},
 	}
-	cmdServe.Flags().IntVarP(&serveOnPort, "port", "p", 8080, "`port` of http server")
-	cmdServe.Flags().StringVarP(&certFile, "cert", "c", "", "the location of the certificate file (for TLS)")
-	cmdServe.Flags().StringVarP(&keyFile, "key", "k", "", "the location of the private key file (for TLS)")
-	cmdServe.Flags().StringVarP(&workflowFile, "workflow", "w", "./configuration/Workflow.json", "`path` to config file that defines the workflow")
-	return cmdServe
+	cmdServes.Flags().IntVarP(&serveOnPort, "port", "p", 8080, "`port` of http server")
+	cmdServes.Flags().StringVarP(&certFile, "cert", "c", "", "the location of the certificate file (for TLS)")
+	cmdServes.Flags().StringVarP(&keyFile, "key", "k", "", "the location of the private key file (for TLS)")
+	cmdServes.Flags().StringVarP(&workflowFile, "workflow", "w", "", "`path` to config file that defines the workflow")
+	cmdServes.Flags().IntVarP(&hardLimit, "hardlimit", "l", 500, "hard limit for the number of recommendations")
+	return cmdServes
 }
