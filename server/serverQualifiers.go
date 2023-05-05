@@ -40,26 +40,11 @@ func formatForLoggingQ(input QRecommenderRequest) string {
 	return escapedjsonstring
 }
 
-// typePrefix is list of prefixes for each type.
-var typePrefix = []string{"o/", "s/"}
-
-func IsQualifier(name string) bool {
-	for _, prefix := range typePrefix {
-		if strings.HasPrefix(name, prefix) {
-			return false
-		}
-	}
-	return true
-}
-
-// make map of all models
-// model directory and iterate over files
+// Load all models into a map with the model id as key.
 var models = make(map[string]*schematree.SchemaTree, 0)
-var workflow *strategy.Workflow
 
-func LoadAllModels() {
-	// load all models
-	items, err := os.ReadDir("testdata")
+func LoadAllModels(models_dir string) {
+	items, err := os.ReadDir(models_dir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,15 +52,16 @@ func LoadAllModels() {
 		if !item.IsDir() {
 			if strings.HasSuffix(item.Name(), ".tsv.schemaTree.typed.pb") {
 				id := strings.TrimSuffix(item.Name(), ".tsv.schemaTree.typed.pb")
-				models[id] = GetModel(id)
+				models[id] = GetModel(item.Name())
 			}
 		}
 	}
 
-	fmt.Println("Models loaded: ", len(models))
+	fmt.Println("Models loaded:", len(models))
 }
 
 func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Workflow {
+	var workflow *strategy.Workflow
 	if workflowFile != "" {
 		config, err := configuration.ReadConfigFile(&workflowFile)
 		if err != nil {
@@ -97,14 +83,10 @@ func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Wo
 	return workflow
 }
 
-func GetModel(path string) *schematree.SchemaTree {
-	modelBinary := fmt.Sprintf("/home/aducu/testdata/%s.tsv.schemaTree.typed.pb", path)
-	// modelBinary := fmt.Sprintf("testdata/%s.tsv.schemaTree.typed.pb", path)
-
-	cleanedmodelBinary := filepath.Clean(modelBinary)
+func GetModel(model_path string) *schematree.SchemaTree {
+	cleanedmodelBinary := filepath.Clean(model_path)
 
 	// Load the schematree from the binary file.
-
 	log.Printf("Loading schema (from file %v): ", cleanedmodelBinary)
 
 	/// file handling
@@ -123,7 +105,25 @@ func GetModel(path string) *schematree.SchemaTree {
 	return model
 }
 
-func setupQualifierRecommender(hardLimit int) func(http.ResponseWriter, *http.Request) {
+func getTypes(subjTypes, objTypes []string) []string {
+	types := make([]string, 0)
+	for _, subjType := range subjTypes {
+		types = append(types, fmt.Sprintf("s/%s", subjType))
+	}
+	for _, objType := range objTypes {
+		types = append(types, fmt.Sprintf("o/%s", objType))
+	}
+	return types
+}
+
+func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) func(http.ResponseWriter, *http.Request) {
+	if models_dir == "" {
+		log.Panicln("No path for the models specified")
+	}
+	if hardLimit < 1 && hardLimit != -1 {
+		log.Panic("hardLimit must be positive, or -1")
+	}
+	LoadAllModels(models_dir)
 	return func(res http.ResponseWriter, req *http.Request) {
 
 		// Decode the JSON input and build a list of input strings
@@ -142,41 +142,21 @@ func setupQualifierRecommender(hardLimit int) func(http.ResponseWriter, *http.Re
 		// Select the model based on the input.
 		model := models[input.Property]
 
-		// Prepend subject and object types to the qualifiers
-		transaction := make([]string, len(input.Qualifiers))
-		copy(transaction, input.Qualifiers)
+		// Combine the subject and object types into a single list.
+		types := getTypes(input.SubjTypes, input.ObjTypes)
 
-		for _, subjType := range input.SubjTypes {
-			transaction = append(transaction, fmt.Sprintf("s/%s", subjType))
-		}
-		for _, objType := range input.ObjTypes {
-			transaction = append(transaction, fmt.Sprintf("o/%s", objType))
-		}
-
-		instance := schematree.NewInstanceFromInput(transaction, make([]string, 0), model, true)
+		instance := schematree.NewInstanceFromInput(input.Qualifiers, types, model, true)
 
 		// Make a recommendation based on the assessed input and chosen strategy.
 		t1 := time.Now()
 
 		// Map including workflows and models
-		workflow := GetWorkflow("", model)
-		rec := workflow.Recommend(instance)
+		workflow := GetWorkflow(workflowFile, model)
+		recommendation := workflow.Recommend(instance)
 		log.Println("request ", escapedjsonstring, " answered in ", time.Since(t1))
 
 		// Put a hard limit on the recommendations returned
-		outputRecs := limitRecommendationsQ(rec, hardLimit)
-
-		// FILTER into 2 groups:
-		// 1. Constrained
-		// 2. Unconstrained
-		for _, rec := range rec {
-			if IsQualifier(*rec.Property.Str) {
-				outputRecs = append(outputRecs, QRecommendationOutputEntry{
-					QualifierStr: rec.Property.Str,
-					Probability:  rec.Probability,
-				})
-			}
-		}
+		outputRecs := limitRecommendationsQ(recommendation, hardLimit)
 
 		// Pack everything into the response
 		recResp := QRecommenderResponse{Recommendations: outputRecs}
@@ -207,7 +187,7 @@ func limitRecommendationsQ(recommendations schematree.PropertyRecommendations, h
 		if hardLimit != -1 && len(outputRecs) >= hardLimit {
 			break
 		}
-		if recommendation.Property.IsProp() {
+		if recommendation.Property.IsQualifier() {
 			outputRecs = append(outputRecs, QRecommendationOutputEntry{
 				QualifierStr: recommendation.Property.Str,
 				Probability:  recommendation.Probability,
@@ -218,8 +198,8 @@ func limitRecommendationsQ(recommendations schematree.PropertyRecommendations, h
 }
 
 // SetupEndpoints configures a router with all necessary endpoints and their corresponding handlers.
-func SetupNewEndpoints(hardLimit int) http.Handler {
+func SetupNewEndpoints(models_dir, workflowFile string, hardLimit int) http.Handler {
 	router := http.NewServeMux()
-	router.HandleFunc("/Qrecommender", setupQualifierRecommender(hardLimit))
+	router.HandleFunc("/Qrecommender", setupQualifierRecommender(models_dir, workflowFile, hardLimit))
 	return router
 }
