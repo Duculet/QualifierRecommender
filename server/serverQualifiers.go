@@ -58,7 +58,7 @@ func LoadAllModels(models_dir string) {
 		}
 	}
 
-	fmt.Println("Models loaded:", len(models))
+	log.Println("Models loaded:", len(models))
 }
 
 func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Workflow {
