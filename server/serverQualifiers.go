@@ -34,18 +34,15 @@ type QRecommendationOutputEntry struct {
 	Probability  float64 `json:"probability"`
 }
 
-// formatForLoggingQ formats the input for logging by removing newlines and carriage returns.
-func formatForLoggingQ(input QRecommenderRequest) string {
-	var jsonstring = fmt.Sprintln(input)
-	escapedjsonstring := strings.Replace(jsonstring, "\n", "", -1)
-	escapedjsonstring = strings.Replace(escapedjsonstring, "\r", "", -1)
-	return escapedjsonstring
-}
-
 // Load all models into a map with the model id as key.
 var models = make(map[string]*schematree.SchemaTree, 0)
 
-func LoadAllModels(models_dir string) {
+// Load all workflows into a map with the model id as key.
+var workflows = make(map[string]*strategy.Workflow, 0)
+
+// LoadAllModels loads all models from the given directory into the models map.
+// It also loads the workflows for each model.
+func LoadAllModels(models_dir, workflowFile string) {
 	items, err := os.ReadDir(models_dir)
 	if err != nil {
 		log.Fatal(err)
@@ -56,6 +53,7 @@ func LoadAllModels(models_dir string) {
 				id := strings.TrimSuffix(item.Name(), ".tsv.schemaTree.typed.pb")
 				model_path := filepath.Clean(filepath.Join(models_dir, item.Name()))
 				models[id] = GetModel(model_path)
+				workflows[id] = GetWorkflow("", models[id])
 			}
 		}
 	}
@@ -110,6 +108,14 @@ func GetModel(model_path string) *schematree.SchemaTree {
 	return model
 }
 
+// formatForLoggingQ formats the input for logging by removing newlines and carriage returns.
+func formatForLoggingQ(input QRecommenderRequest) string {
+	var jsonstring = fmt.Sprintln(input)
+	escapedjsonstring := strings.Replace(jsonstring, "\n", "", -1)
+	escapedjsonstring = strings.Replace(escapedjsonstring, "\r", "", -1)
+	return escapedjsonstring
+}
+
 // getTypes combines the subject and object types into a single list.
 // The types are prefixed with "s/" or "o/" to indicate whether they are subject or object types.
 // This is the format expected by the schematree.
@@ -134,7 +140,7 @@ func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) f
 	if hardLimit < 1 && hardLimit != -1 {
 		log.Panic("hardLimit must be positive, or -1")
 	}
-	LoadAllModels(models_dir)
+	LoadAllModels(models_dir, workflowFile)
 	return func(res http.ResponseWriter, req *http.Request) {
 
 		// Decode the JSON input and build a list of input strings
@@ -150,20 +156,21 @@ func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) f
 		escapedjsonstring := formatForLoggingQ(input)
 		log.Println("request received ", escapedjsonstring)
 
-		// Select the model based on the input.
+		// Select the model and workflow based on the input.
 		model := models[input.Property]
+		workflow := workflows[input.Property]
 
 		// Combine the subject and object types into a single list.
 		types := getTypes(input.SubjTypes, input.ObjTypes)
 
+		// Create an instance from the input.
 		instance := schematree.NewInstanceFromInput(input.Qualifiers, types, model, true)
 
-		// Make a recommendation based on the assessed input and chosen strategy.
+		// Start the timer for the recommendation.
 		t1 := time.Now()
-
-		// Map including workflows and models
-		workflow := GetWorkflow(workflowFile, model)
+		// Make a recommendation based on the chosen strategy and the assessed input.
 		recommendation := workflow.Recommend(instance)
+		// Print the request and the time it took to answer it.
 		log.Println("request ", escapedjsonstring, " answered in ", time.Since(t1))
 
 		// Put a hard limit on the recommendations returned
