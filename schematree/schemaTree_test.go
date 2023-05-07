@@ -1,6 +1,7 @@
 package schematree
 
 import (
+	"RecommenderServer/transactions"
 	"testing"
 
 	"log"
@@ -14,8 +15,10 @@ var treePathTyped = "../testdata/10M.nt.gz.schemaTree.typed.bin"
 
 func TestSchemaTree(t *testing.T) {
 	tree := New(false, 0)
-	t.Run("Root is a proper empty root node", func(t *testing.T) { emptyRootNodeTest(t, tree.Root) })
-
+	t.Run("Root is a proper empty root node", func(t *testing.T) {
+		emptyRootNodeTest(t, tree.Root)
+		assert.Equal(t, tree.Root.ID.traversalPointer, &tree.Root, "For any tree, the traversalPointer for the root node must be the root node itself.")
+	})
 }
 
 func TestLoad(t *testing.T) {
@@ -26,7 +29,8 @@ func TestLoad(t *testing.T) {
 			log.Printf("Encountered error while trying to open the file: %v\n", err)
 			log.Panic(err)
 		}
-		tree, _ := Load(f, false)
+		tree, err := Load(f, false)
+		assert.NoError(t, err, "An error occured restoring the schematree.")
 		assert.EqualValues(t, 1497, tree.PropMap.Len())
 		assert.EqualValues(t, 1, tree.MinSup)
 		assert.True(t, tree.Typed)
@@ -38,13 +42,21 @@ func TestLoad(t *testing.T) {
 			log.Printf("Encountered error while trying to open the file: %v\n", err)
 			log.Panic(err)
 		}
-		tree, _ := Load(f, false)
+		tree, err := Load(f, false)
+		assert.NoError(t, err, "An error occured restoring the schematree.")
 		assert.EqualValues(t, 1242, tree.PropMap.Len())
 		assert.EqualValues(t, 1, tree.MinSup)
 		assert.False(t, tree.Typed)
 		assert.Len(t, tree.AllProperties(), 1242)
 	})
 
+}
+
+func allNodesHaveItem(t *testing.T, node *SchemaNode) {
+	assert.NotNil(t, node.ID)
+	for _, child := range node.Children {
+		allNodesHaveItem(t, child)
+	}
 }
 
 func TestSaveLoadProtocolBuffer(t *testing.T) {
@@ -56,6 +68,8 @@ func TestSaveLoadProtocolBuffer(t *testing.T) {
 			log.Panic(err)
 		}
 		original_tree, _ := Load(original_input_file, false)
+
+		allNodesHaveItem(t, &original_tree.Root)
 		// store
 		proto_file, err := os.CreateTemp("", "schemaTree_test_protocol_buffer")
 		if err != nil {
@@ -105,25 +119,98 @@ func TestSaveLoadProtocolBuffer(t *testing.T) {
 //		nextSameID    *SchemaNode // node traversal pointer
 //		Support       uint32      // total frequency of the node in the path
 //	}
+
+// make sure that each node is reachable from a chain
+func checkReachableFrom(t *testing.T, from *SchemaNode, target *SchemaNode) {
+	for traverser := from; traverser != nil; traverser = traverser.nextSameID {
+		if traverser.ID == target.ID {
+			return
+		}
+	}
+	assert.Failf(t, "node not reachable", "The node %v is not reachable from %v", target, from)
+}
+
 func depthFirstCompare(t *testing.T, left *SchemaNode, right *SchemaNode) {
 	assert.EqualValues(t, left.ID.Str, right.ID.Str)
-	if left.nextSameID == nil {
-		assert.True(t, right.nextSameID == nil)
-	} else {
-		assert.EqualValues(t, left.nextSameID.ID.Str, right.nextSameID.ID.Str)
-	}
+	assert.EqualValues(t, left.ID.TotalCount, right.ID.TotalCount)
+	assert.EqualValues(t, left.ID.SortOrder, right.ID.SortOrder)
+
 	assert.EqualValues(t, left.Support, right.Support)
 
+	assert.NotNil(t, left.ID.traversalPointer)
+	assert.NotNil(t, right.ID.traversalPointer)
+
+	// Make sure they are on their own their own chain
+	checkReachableFrom(t, left, left.ID.traversalPointer)
+	checkReachableFrom(t, right, right.ID.traversalPointer)
+
 	if left.parent == nil {
-		assert.True(t, right.parent == nil)
+		assert.Nil(t, right.parent)
 	} else {
 		assert.EqualValues(t, left.parent.ID.Str, right.parent.ID.Str)
 	}
 	leftChildren := left.Children
 	rightChildren := right.Children
 	assert.EqualValues(t, len(leftChildren), len(rightChildren), "Unequal number of children, got %d and %d", len(leftChildren), len(rightChildren))
+	// The order for serialization should be stable
 	for i, leftChild := range leftChildren {
 		rightChild := rightChildren[i]
 		depthFirstCompare(t, leftChild, rightChild)
 	}
+}
+
+func TestSpecificRecommendation(t *testing.T) {
+	inputDataset := "../testdata/tsv-transaction-test.tsv"
+	description := "specific test with ../testdata/tsv-transaction-test.tsv"
+
+	t.Run(description,
+		func(t *testing.T) {
+			s := transactions.SimpleFileTransactionSource(inputDataset)
+			tree := Create(s)
+			{
+				recs := tree.Recommend([]string{"a", "b", "c"}, nil)
+				assert.Len(t, recs, 1)
+				rec := recs[0]
+				assert.Equal(t, 0.5, rec.Probability)
+				assert.Equal(t, "d", *rec.Property.Str)
+			}
+			{
+				recs := tree.Recommend([]string{"b"}, nil)
+				assert.Len(t, recs, 4)
+				rec := recs[0]
+				assert.Equal(t, 0.8, rec.Probability)
+				assert.Equal(t, "a", *rec.Property.Str)
+				rec = recs[1]
+				assert.Equal(t, 0.6, rec.Probability)
+				assert.Equal(t, "c", *rec.Property.Str)
+				rec = recs[2]
+				assert.Equal(t, 0.4, rec.Probability)
+				assert.Equal(t, "d", *rec.Property.Str)
+				rec = recs[3]
+				assert.Equal(t, 0.2, rec.Probability)
+				assert.Equal(t, "e", *rec.Property.Str)
+			}
+			{
+				recs := tree.Recommend([]string{"e"}, nil)
+				assert.Len(t, recs, 3)
+				rec := recs[0]
+				assert.Equal(t, 1.0, rec.Probability)
+				assert.Equal(t, "c", *rec.Property.Str)
+				// "a" and "b" have equal probailities
+				var reca RankedPropertyCandidate
+				var recb RankedPropertyCandidate
+				if *recs[1].Property.Str == "a" {
+					reca = recs[1]
+					recb = recs[2]
+				} else {
+					reca = recs[2]
+					recb = recs[1]
+				}
+				assert.Equal(t, 0.5, reca.Probability)
+				assert.Equal(t, "a", *reca.Property.Str)
+				assert.Equal(t, 0.5, recb.Probability)
+				assert.Equal(t, "b", *recb.Property.Str)
+			}
+		})
+
 }
