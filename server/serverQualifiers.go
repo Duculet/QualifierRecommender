@@ -44,9 +44,8 @@ func formatForLoggingQ(input QRecommenderRequest) string {
 
 // Load all models into a map with the model id as key.
 var models = make(map[string]*schematree.SchemaTree, 0)
-var workflows = make(map[string]*strategy.Workflow, 0)
 
-func LoadAllModels(models_dir, workflowFile string) {
+func LoadAllModels(models_dir string) {
 	items, err := os.ReadDir(models_dir)
 	if err != nil {
 		log.Fatal(err)
@@ -57,7 +56,6 @@ func LoadAllModels(models_dir, workflowFile string) {
 				id := strings.TrimSuffix(item.Name(), ".tsv.schemaTree.typed.pb")
 				model_path := filepath.Clean(filepath.Join(models_dir, item.Name()))
 				models[id] = GetModel(model_path)
-				workflows[id] = GetWorkflow("", models[id])
 			}
 		}
 	}
@@ -136,7 +134,7 @@ func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) f
 	if hardLimit < 1 && hardLimit != -1 {
 		log.Panic("hardLimit must be positive, or -1")
 	}
-	LoadAllModels(models_dir, workflowFile)
+	LoadAllModels(models_dir)
 	return func(res http.ResponseWriter, req *http.Request) {
 
 		// Decode the JSON input and build a list of input strings
@@ -152,21 +150,20 @@ func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) f
 		escapedjsonstring := formatForLoggingQ(input)
 		log.Println("request received ", escapedjsonstring)
 
-		// Select the model and workflow based on the input.
+		// Select the model based on the input.
 		model := models[input.Property]
-		workflow := workflows[input.Property]
 
 		// Combine the subject and object types into a single list.
 		types := getTypes(input.SubjTypes, input.ObjTypes)
 
-		// Create an instance from the input.
 		instance := schematree.NewInstanceFromInput(input.Qualifiers, types, model, true)
 
-		// Start the timer for the recommendation.
+		// Make a recommendation based on the assessed input and chosen strategy.
 		t1 := time.Now()
-		// Make a recommendation based on the chosen strategy and the assessed input.
+
+		// Map including workflows and models
+		workflow := GetWorkflow(workflowFile, model)
 		recommendation := workflow.Recommend(instance)
-		// Print the request and the time it took to answer it.
 		log.Println("request ", escapedjsonstring, " answered in ", time.Since(t1))
 
 		// Put a hard limit on the recommendations returned
