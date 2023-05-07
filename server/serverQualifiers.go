@@ -15,6 +15,7 @@ import (
 	"RecommenderServer/strategy"
 )
 
+// QRecommenderRequest is the data representation of the request json.
 type QRecommenderRequest struct {
 	Property   string   `json:"property"`
 	Qualifiers []string `json:"qualifiers"`
@@ -22,17 +23,18 @@ type QRecommenderRequest struct {
 	ObjTypes   []string `json:"objTypes"`
 }
 
-// RecommenderResponse is the data representation of the json.
+// QRecommenderResponse is the data representation of the response json.
 type QRecommenderResponse struct {
 	Recommendations []QRecommendationOutputEntry `json:"recommendations"`
 }
 
-// RecommendationOutputEntry is each entry that is return from the server.
+// QRecommendationOutputEntry is each entry that is returned from the server.
 type QRecommendationOutputEntry struct {
 	QualifierStr *string `json:"qualifier"`
 	Probability  float64 `json:"probability"`
 }
 
+// formatForLoggingQ formats the input for logging by removing newlines and carriage returns.
 func formatForLoggingQ(input QRecommenderRequest) string {
 	var jsonstring = fmt.Sprintln(input)
 	escapedjsonstring := strings.Replace(jsonstring, "\n", "", -1)
@@ -61,6 +63,7 @@ func LoadAllModels(models_dir string) {
 	log.Println("Models loaded:", len(models))
 }
 
+// GetWorkflow returns the workflow to be used for the recommendation.
 func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Workflow {
 	var workflow *strategy.Workflow
 	if workflowFile != "" {
@@ -84,6 +87,7 @@ func GetWorkflow(workflowFile string, model *schematree.SchemaTree) *strategy.Wo
 	return workflow
 }
 
+// GetModel returns the model to be used for the recommendation.
 func GetModel(model_path string) *schematree.SchemaTree {
 	cleanedmodelBinary := filepath.Clean(model_path)
 
@@ -106,6 +110,9 @@ func GetModel(model_path string) *schematree.SchemaTree {
 	return model
 }
 
+// getTypes combines the subject and object types into a single list.
+// The types are prefixed with "s/" or "o/" to indicate whether they are subject or object types.
+// This is the format expected by the schematree.
 func getTypes(subjTypes, objTypes []string) []string {
 	types := make([]string, 0)
 	for _, subjType := range subjTypes {
@@ -117,6 +124,9 @@ func getTypes(subjTypes, objTypes []string) []string {
 	return types
 }
 
+// setupQualifierRecommender sets up the handler for the qualifier recommender.
+// It loads all models from the given directory and returns a handler function.
+// The handler function expects a json input of type QRecommenderRequest and returns a json output of type QRecommenderResponse.
 func setupQualifierRecommender(models_dir, workflowFile string, hardLimit int) func(http.ResponseWriter, *http.Request) {
 	if models_dir == "" {
 		log.Panicln("No path for the models specified")
