@@ -2,3 +2,4 @@
 Qrec*
 .gitignore
 testdata/*.tsv*
+testdata/pbfiles
