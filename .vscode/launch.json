@@ -16,7 +16,9 @@
                 "-m",
                 "testdata/splits/TT/train/P97.tsv.schemaTree.typed.pb",
                 "-d",
-                "testdata/splits/TT/test/P97.tsv"
+                "testdata/splits/TT/test/P97.tsv",
+                "-o",
+                "testdata/splits/TT/eval/"
             ]
         }
     ]

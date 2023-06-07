@@ -17,24 +17,41 @@ import (
 
 func CommandWikiEvaluate() *cobra.Command {
 
-	var modelFile, dataset, handler string
+	var modelFile, dataset, outputDir, handler string
+	var verbose bool
 	var model *schematree.SchemaTree
 	var workflow *strategy.Workflow
 
 	cmdEvalTree := &cobra.Command{
-		Use:   "evaluate -m <modelfile> -d <testset> [-h <handler>]",
+		Use:   "evaluate -m <modelfile> -d <testset> [-o <outputdir>] [-h <handler>] [-v <verbose>]",
 		Short: "Evaluate the model against the dataset",
 		Long: "Evaluate the model against the dataset. \n" +
 			"The model should be a schematree binary file. \n" +
 			"The dataset should be a tsv file with one transaction per line. \n" +
+			"The output file will be generated in the output directory and with suffixed names, namely:" +
+			" '<dataset>.eval.<handler>.tsv'\n" +
 			"The handler should be the way of handling the transactions during evaluation.",
 		Run: func(cmd *cobra.Command, args []string) {
+
 			log.Println("Evaluating model", model, "against dataset", dataset, "with handler", handler)
 
 			// remove the .tsv extension from the dataset
 			// this is the name of the output file
-			outputFileName := strings.TrimSuffix(dataset, ".tsv")
-			outputFileName += ".eval." + handler + ".tsv"
+			if outputDir == "" {
+				// if no output directory is provided, use the directory of the dataset
+				outputDir = filepath.Dir(dataset)
+			} else {
+				// if an output directory is provided, use it
+				outputDir = filepath.Clean(outputDir)
+			}
+			// create directory if it does not exist
+			if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+				os.MkdirAll(outputDir, os.ModePerm)
+			}
+			// the output file will be generated in the output directory
+			datasetID := strings.TrimSuffix(filepath.Base(dataset), ".tsv")
+			outputFileName := filepath.Join(outputDir, datasetID+".eval."+handler+".tsv")
+			outputFileName = filepath.Clean(outputFileName)
 
 			// load the model
 			model = server.GetModel(modelFile)
@@ -45,7 +62,10 @@ func CommandWikiEvaluate() *cobra.Command {
 			t0 := time.Now()
 			instanceAll := schematree.NewInstanceFromInput([]string{}, []string{}, model, true)
 			recommendationsAll := workflow.Recommend(instanceAll)
-			log.Println("Recommendations", len(recommendationsAll), "for all found in", time.Since(t0))
+
+			if verbose {
+				log.Println("Recommendations", len(recommendationsAll), "for all found in", time.Since(t0))
+			}
 
 			// load the dataset
 			datasetFile, err := os.Open(dataset)
@@ -62,8 +82,7 @@ func CommandWikiEvaluate() *cobra.Command {
 			tsvScanner := bufio.NewScanner(datasetFile)
 			for cntScan := 0; tsvScanner.Scan() && cntScan < limitScan; cntScan++ {
 				line := tsvScanner.Text()
-				log.Println("###################")
-				log.Println("Evaluating line", line)
+
 				items := strings.Split(line, "\t")
 				var qualifiers, objTypes, subjTypes []string
 				for _, item := range items {
@@ -82,24 +101,28 @@ func CommandWikiEvaluate() *cobra.Command {
 					}
 				}
 
-				log.Println("Qualifiers:", qualifiers)
-				log.Println(len(objTypes), "Object types:", objTypes)
-				log.Println(len(subjTypes), "Subject types:", subjTypes)
-
 				// cache recommendations without any qualifier information
 				t0 := time.Now()
 				types := append(objTypes, subjTypes...)
-				log.Println("Types:", types)
 				instanceTypes := schematree.NewInstanceFromInput([]string{}, types, model, true)
 				recommendationsTypes := workflow.Recommend(instanceTypes)
-				log.Println("Recommendations", len(recommendationsTypes), "for types found in", time.Since(t0))
+				if verbose {
+					log.Println("Types:", types)
+					log.Println("Recommendations", len(recommendationsTypes), "for types found in", time.Since(t0))
+
+					log.Println("###################")
+					log.Println("Evaluating line", line)
+					log.Println("Qualifiers:", qualifiers)
+					log.Println(len(objTypes), "Object types:", objTypes)
+					log.Println(len(subjTypes), "Subject types:", subjTypes)
+				}
 
 				// remove the first item from the qualifiers and add it to the leftOut
 				// skip if there is only one qualifier
 				// MUST DO THIS DIFFERENT FOR TYPED VERSION
-				if len(qualifiers)-1 == 0 {
-					continue
-				}
+				// if len(qualifiers)-1 == 0 {
+				// 	continue
+				// }
 
 				sumTransRanks := 0
 
@@ -123,19 +146,23 @@ func CommandWikiEvaluate() *cobra.Command {
 					// 			reducedSet = append(reducedSet, item)
 					// 		}
 					// 	}
-					log.Println("")
-					log.Println("Initial set of qualifiers:", qualifiers)
-					log.Println("Length of initial set of qualifiers:", len(qualifiers))
-					log.Println("Reduced set of qualifiers:", reducedSet)
-					log.Println("Evaluating with left out qualifier", leftOut)
-					log.Println("-------------------")
+					if verbose {
+						log.Println("")
+						log.Println("Initial set of qualifiers:", qualifiers)
+						log.Println("Length of initial set of qualifiers:", len(qualifiers))
+						log.Println("Reduced set of qualifiers:", reducedSet)
+						log.Println("Evaluating with left out qualifier", leftOut)
+						log.Println("-------------------")
+					}
 
 					instance := schematree.NewInstanceFromInput(reducedSet, types, model, true)
 
 					t1 := time.Now()
 					recommendation := workflow.Recommend(instance)
-					log.Println("Recommendations", len(recommendation))
-					log.Println("Recommendation took", time.Since(t1))
+					if verbose {
+						log.Println("Recommendations", len(recommendation))
+						log.Println("Recommendation took", time.Since(t1))
+					}
 
 					existsRec := make(map[string]bool)
 					outputRecs := make([]string, 0)
@@ -148,9 +175,6 @@ func CommandWikiEvaluate() *cobra.Command {
 							existsRec[*item.Property.Str] = true // add to the map
 						}
 					}
-
-					log.Println(len(outputRecs), "recommendations full info")
-					log.Println("Recommendations full info:", outputRecs)
 
 					// concatenate recommendationsTypes and outputRecs
 					// only add the ones that are not already in the list
@@ -165,8 +189,6 @@ func CommandWikiEvaluate() *cobra.Command {
 						}
 					}
 
-					log.Println(len(outputRecs), "recommendations full info after adding types")
-
 					// concatenate recommendationsAll and outputRecs
 					// only add the ones that are not already in the list
 					for _, item := range recommendationsAll {
@@ -179,8 +201,6 @@ func CommandWikiEvaluate() *cobra.Command {
 						}
 					}
 
-					log.Println(len(outputRecs), "recommendations full info after adding types and all")
-
 					// check if the recommendation contains the leftOut qualifier
 					containsLeftOut := false
 					rankLeftOut := 500
@@ -189,12 +209,18 @@ func CommandWikiEvaluate() *cobra.Command {
 						if item == leftOut {
 							containsLeftOut = true
 							rankLeftOut = r
-							log.Println("Found at position", r)
 							break
 						}
 					}
-					log.Println("Left out qualifier", leftOut, "is contained in the recommendation:", containsLeftOut)
-					log.Println("Rank of left out qualifier", leftOut, "is", rankLeftOut)
+
+					if verbose {
+						log.Println(len(outputRecs), "recommendations full info")
+						log.Println("Recommendations full info:", outputRecs)
+						log.Println(len(outputRecs), "recommendations full info after adding types")
+						log.Println(len(outputRecs), "recommendations full info after adding types and others")
+						log.Println("Left out qualifier", leftOut, "is contained in the recommendation:", containsLeftOut)
+						log.Println("Rank of left out qualifier", leftOut, "is", rankLeftOut)
+					}
 					// if !containsLeftOut {
 					// 	// wait for 5 seconds
 					// 	time.Sleep(5 * time.Second)
@@ -206,7 +232,10 @@ func CommandWikiEvaluate() *cobra.Command {
 
 				// calculate the average rank
 				avgRank := float32(sumTransRanks) / float32(len(qualifiers))
-				log.Println("AVG RANK:", avgRank)
+
+				if verbose {
+					log.Println("AVG RANK:", avgRank)
+				}
 
 				// add the average rank to the list
 				avgRanks = append(avgRanks, avgRank)
@@ -218,6 +247,7 @@ func CommandWikiEvaluate() *cobra.Command {
 				sumAvgRanks += avgRank
 			}
 			modelAvgRank := sumAvgRanks / float32(len(avgRanks))
+
 			log.Println("Model evaluated:", strings.TrimSuffix(filepath.Base(modelFile), ".tsv.schemaTree.typed.pb"))
 			log.Println("Model avg rank:", modelAvgRank)
 
@@ -241,7 +271,9 @@ func CommandWikiEvaluate() *cobra.Command {
 
 	cmdEvalTree.Flags().StringVarP(&modelFile, "model", "m", "", "The model to evaluate")
 	cmdEvalTree.Flags().StringVarP(&dataset, "dataset", "d", "", "The dataset to evaluate against")
+	cmdEvalTree.Flags().StringVarP(&outputDir, "output", "o", "", "The output directory to write the results to")
 	cmdEvalTree.Flags().StringVarP(&handler, "handler", "k", "takeOneButType", "The handler to use for evaluation: takeOneButType")
+	cmdEvalTree.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 
 	return cmdEvalTree
 }
