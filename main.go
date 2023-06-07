@@ -124,6 +124,7 @@ func main() {
 	cmdRoot.AddCommand(cli.CommandWikiServe())
 	cmdRoot.AddCommand(cli.CommandWikiServes())
 	cmdRoot.AddCommand(cli.CommandWikiBuild())
+	cmdRoot.AddCommand(cli.CommandWikiEvaluate())
 	// Start the CLI application
 	err := cmdRoot.Execute()
 	if err != nil {
