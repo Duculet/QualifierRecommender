@@ -33,7 +33,7 @@ func CommandWikiEvaluate() *cobra.Command {
 			"The handler should be the way of handling the transactions during evaluation.",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			log.Println("Evaluating model", model, "against dataset", dataset, "with handler", handler)
+			log.Println("Evaluating model", modelFile, "against dataset", dataset, "with handler", handler)
 
 			// remove the .tsv extension from the dataset
 			// this is the name of the output file
