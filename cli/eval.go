@@ -205,7 +205,9 @@ func CommandWikiEvaluate() *cobra.Command {
 					containsLeftOut := false
 					rankLeftOut := 500
 					for r, item := range outputRecs {
-						log.Println("Checking", item, "against", leftOut)
+						if verbose {
+							log.Println("Checking", item, "against", leftOut)
+						}
 						if item == leftOut {
 							containsLeftOut = true
 							rankLeftOut = r
