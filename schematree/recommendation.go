@@ -134,12 +134,10 @@ func (tree *SchemaTree) RecommendProperty(properties IList) (ranked PropertyReco
 		}
 
 		// now that all candidates have been collected, rank them
-		i := 0
 		setSup := float64(setSupport)
-		ranked = make([]RankedPropertyCandidate, len(candidates))
+		ranked = make([]RankedPropertyCandidate, 0, len(candidates))
 		for candidate, support := range candidates {
-			ranked[i] = RankedPropertyCandidate{candidate, float64(support) / setSup}
-			i++
+			ranked = append(ranked, RankedPropertyCandidate{candidate, float64(support) / setSup})
 		}
 
 		// sort descending by support
@@ -197,12 +195,10 @@ func (tree *SchemaTree) RecommendPropertiesAndTypes(properties IList) (ranked Pr
 		}
 
 		// now that all candidates have been collected, rank them
-		i := 0
 		setSup := float64(setSupport)
-		ranked = make([]RankedPropertyCandidate, len(candidates))
+		ranked = make([]RankedPropertyCandidate, 0, len(candidates))
 		for candidate, support := range candidates {
-			ranked[i] = RankedPropertyCandidate{candidate, float64(support) / setSup}
-			i++
+			ranked = append(ranked, RankedPropertyCandidate{candidate, float64(support) / setSup})
 		}
 
 		// sort descending by support
