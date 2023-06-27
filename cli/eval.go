@@ -38,7 +38,7 @@ func CommandWikiEvaluate() *cobra.Command {
 			workflow = server.GetWorkflow("", model)
 
 			// evaluate the model
-			results := evaluation.EvaluateDataset(model, workflow, testset, 0, true)
+			results := evaluation.EvaluateDataset(model, workflow, testset, 0, verbose)
 
 			// write the results to the output file
 			// remove the .tsv extension from the testset
