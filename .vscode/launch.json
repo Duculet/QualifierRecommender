@@ -4,6 +4,25 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "Launch ePNAN",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "evaluate",
+                "-m",
+                "testdata/splits/TT/train/P7124.tsv.schemaTree.typed.pb",
+                "-d",
+                "testdata/splits/TT/test/P7124.tsv",
+                "-o",
+                "testdata/splits/TT/eval/",
+                "-v",
+                "true"
+            ]
+        },
         
         {
             "name": "Launch evaluate",
@@ -14,11 +33,13 @@
             "args": [
                 "evaluate",
                 "-m",
-                "testdata/splits/TT/train/P97.tsv.schemaTree.typed.pb",
+                "testdata/splits/TT/train/P9979.tsv.schemaTree.typed.pb",
                 "-d",
-                "testdata/splits/TT/test/P97.tsv",
+                "testdata/splits/TT/test/P9979.tsv",
                 "-o",
-                "testdata/splits/TT/eval/"
+                "testdata/splits/TT/eval/",
+                "-v",
+                "true"
             ]
         }
     ]

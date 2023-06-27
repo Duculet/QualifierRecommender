@@ -4,3 +4,6 @@ Qrec*
 testdata/*.tsv*
 testdata/pbfiles
 testdata/splits
+evaluation/handlers.go
+evaluation/results.go
+backups
