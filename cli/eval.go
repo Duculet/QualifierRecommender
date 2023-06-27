@@ -21,7 +21,7 @@ func CommandWikiEvaluate() *cobra.Command {
 	var workflow *strategy.Workflow
 
 	cmdEvalTree := &cobra.Command{
-		Use:   "evaluate -m <modelfile> -d <testset> [-o <outputdir>] [-h <handler>] [-v <verbose>]",
+		Use:   "evaluate -m <modelfile> -d <testset> [-o <outputdir>] [-k <handler>] [-v <verbose>]",
 		Short: "Evaluate the model against the testset",
 		Long: "Evaluate the model against the testset. \n" +
 			"The model should be a schematree binary file. \n" +
@@ -65,6 +65,7 @@ func CommandWikiEvaluate() *cobra.Command {
 			// write the results to the output file
 			outputFileName = evaluation.WriteResultsToFile(outputFileName, results)
 
+			log.Println("Results:", results)
 			log.Println("Results written to", outputFileName)
 
 			log.Println("EVALUATION FINISHED!")
@@ -74,7 +75,7 @@ func CommandWikiEvaluate() *cobra.Command {
 	cmdEvalTree.Flags().StringVarP(&modelFile, "model", "m", "", "The model to evaluate")
 	cmdEvalTree.Flags().StringVarP(&testset, "testset", "d", "", "The testset to evaluate against")
 	cmdEvalTree.Flags().StringVarP(&outputDir, "output", "o", "", "The output directory to write the results to")
-	cmdEvalTree.Flags().StringVarP(&handler, "handler", "h", "takeOneButType", "The handler to use for evaluation: takeOneButType")
+	cmdEvalTree.Flags().StringVarP(&handler, "handler", "k", "takeOneButType", "The handler to use for evaluation: takeOneButType")
 	cmdEvalTree.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 
 	return cmdEvalTree

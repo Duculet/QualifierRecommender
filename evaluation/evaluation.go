@@ -160,12 +160,12 @@ func evaluatePair(
 
 	// check if the recommendation contains the leftOut qualifier
 	rankLeftOut := len(outputRecs) + 1 // if not found, set to the last rank
-	for rank, item := range outputRecs {
+	for idx, item := range outputRecs {
 		if verbose {
 			log.Println("Checking", item, "against", leftOut)
 		}
 		if item == leftOut {
-			rankLeftOut = rank
+			rankLeftOut = idx + 1 // set the rank
 			break
 		}
 	}
