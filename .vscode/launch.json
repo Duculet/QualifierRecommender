@@ -25,7 +25,7 @@
         },
         
         {
-            "name": "Launch evaluate",
+            "name": "P9979 Evaluate (small)",
             "type": "go",
             "request": "launch",
             "mode": "debug",

@@ -12,17 +12,17 @@ import (
 )
 
 type evalResult struct {
-	transID      uint32 // transaction ID (unique for each transaction)
-	leftOut      string // property that has been left out
-	setSize      uint16 // number of properties used to generate recommendations (both type and non-type)
-	numTypes     uint16 // number of type properties
-	numObjTypes  uint16 // number of object type properties
-	numSubjTypes uint16 // number of object type properties
-	rank         uint16 // rank calculated for recommendation, equal to lec(recommendations)+1 if not fully recommendated back
-	rankAt1      uint8  // rank hits@1, value is 1 if leftOut is first in recommendations, 0 otherwise
-	rankAt5      uint8  // rank hits@5, value is 1 if leftOut is in the first 5 recommendations, 0 otherwise
-	rankAt10     uint8  // rank hits@10, value is 1 if leftOut is in the first 10 recommendations, 0 otherwise
-	duration     int64  // duration (in nanoseconds) of how long the recommendation took
+	TransID      uint32 // transaction ID (unique for each transaction)
+	LeftOut      string // property that has been left out
+	SetSize      uint16 // number of properties used to generate recommendations (both type and non-type)
+	NumTypes     uint16 // number of type properties
+	NumObjTypes  uint16 // number of object type properties
+	NumSubjTypes uint16 // number of object type properties
+	Rank         uint16 // rank calculated for recommendation, equal to lec(recommendations)+1 if not fully recommendated back
+	HitsAt1      uint8  // rank hits@1, value is 1 if leftOut is first in recommendations, 0 otherwise
+	HitsAt5      uint8  // rank hits@5, value is 1 if leftOut is in the first 5 recommendations, 0 otherwise
+	HitsAt10     uint8  // rank hits@10, value is 1 if leftOut is in the first 10 recommendations, 0 otherwise
+	Duration     int64  // duration (in nanoseconds) of how long the recommendation took
 	// numLeftOut uint16 // number of properties that have been left out an needed to be recommended back
 }
 
@@ -170,16 +170,16 @@ func evaluatePair(
 		}
 	}
 
-	var rankAt1, rankAt5, rankAt10 uint8
+	var hitsAt1, hitsAt5, hitsAt10 uint8
 	// set the rank hits @1, @5, @10
 	if rankLeftOut == 1 {
-		rankAt1 = 1
+		hitsAt1 = 1
 	}
 	if rankLeftOut <= 5 {
-		rankAt5 = 1
+		hitsAt5 = 1
 	}
 	if rankLeftOut <= 10 {
-		rankAt10 = 1
+		hitsAt10 = 1
 	}
 
 	evalDuration := time.Since(evalStart)
@@ -190,24 +190,24 @@ func evaluatePair(
 		log.Println(len(outputRecs), "recommendations full info after adding types and others")
 		log.Println("Recommendations full info:", outputRecs)
 		log.Println("Rank of left out qualifier", leftOut, "is", rankLeftOut)
-		log.Println("Rank @1:", rankAt1)
-		log.Println("Rank @5:", rankAt5)
-		log.Println("Rank @10:", rankAt10)
+		log.Println("Rank @1:", hitsAt1)
+		log.Println("Rank @5:", hitsAt5)
+		log.Println("Rank @10:", hitsAt10)
 		log.Println("Evaluation took", evalDuration)
 	}
 
 	return evalResult{
-		transID:      transID,
-		leftOut:      leftOut,
-		setSize:      uint16(len(reducedSet) + len(types)),
-		numTypes:     uint16(len(types)),
-		numObjTypes:  uint16(len(objTypes)),
-		numSubjTypes: uint16(len(subjTypes)),
-		rank:         uint16(rankLeftOut),
-		rankAt1:      rankAt1,
-		rankAt5:      rankAt5,
-		rankAt10:     rankAt10,
-		duration:     evalDuration.Nanoseconds(),
+		TransID:      transID,
+		LeftOut:      leftOut,
+		SetSize:      uint16(len(reducedSet) + len(types)),
+		NumTypes:     uint16(len(types)),
+		NumObjTypes:  uint16(len(objTypes)),
+		NumSubjTypes: uint16(len(subjTypes)),
+		Rank:         uint16(rankLeftOut),
+		HitsAt1:      hitsAt1,
+		HitsAt5:      hitsAt5,
+		HitsAt10:     hitsAt10,
+		Duration:     evalDuration.Nanoseconds(),
 	}
 }
 
@@ -277,11 +277,17 @@ func WriteResultsToFile(filename string, results []evalResult) string {
 		log.Fatalln("Could not create / open .json file")
 	}
 	defer f.Close()
-	// write the array of evalResults to the file
-	enc := json.NewEncoder(f)
-	err = enc.Encode(results)
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+
+	file, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		log.Fatalln("Could not encode results to json")
+		log.Panicln("Could not marshal evalResult to json")
+	}
+
+	_, err = w.Write(file)
+	if err != nil {
+		log.Panicln("Could not write evalResult to file")
 	}
 
 	return filename + ".json"
