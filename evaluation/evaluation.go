@@ -38,6 +38,7 @@ func EvaluateDataset(model *schematree.SchemaTree, workflow *strategy.Workflow, 
 	recommendationsAll := workflow.Recommend(instanceAll)
 
 	if verbose {
+		log.Println("All recommendations", recommendationsAll)
 		log.Println("Recommendations", len(recommendationsAll), "for all found in", time.Since(t0))
 	}
 
@@ -57,15 +58,14 @@ func EvaluateDataset(model *schematree.SchemaTree, workflow *strategy.Workflow, 
 		recommendationsTypes := workflow.Recommend(instanceTypes)
 
 		if verbose {
+			log.Println("Type recommendations", recommendationsTypes)
+			log.Println("Recommendations", len(recommendationsTypes), "for types found in", time.Since(t0))
 			log.Println("___________________")
 			log.Println("Transaction:", transID)
 			log.Println("Types:", types)
-			log.Println("Recommendations", len(recommendationsTypes), "for types found in", time.Since(t0))
 
 			log.Println("###################")
 			log.Println("Qualifiers:", qualifiers)
-			log.Println("Object types:", objTypes)
-			log.Println("Subject types:", subjTypes)
 			log.Println(len(objTypes), "Object types:", objTypes)
 			log.Println(len(subjTypes), "Subject types:", subjTypes)
 		}

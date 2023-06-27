@@ -41,6 +41,25 @@
                 "-v",
                 "true"
             ]
+        },
+
+        {
+            "name": "P31 Evaluate",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "evaluate",
+                "-m",
+                "testdata/splits/TT/train/P31.tsv.schemaTree.typed.pb",
+                "-d",
+                "testdata/splits/TT/test/P31.tsv",
+                "-o",
+                "testdata/splits/TT/eval/",
+                "-v",
+                "true"
+            ]
         }
     ]
 }
