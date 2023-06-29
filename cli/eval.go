@@ -65,9 +65,7 @@ func CommandWikiEvaluate() *cobra.Command {
 			// write the results to the output file
 			outputFileName = evaluation.WriteResultsToFile(outputFileName, results)
 
-			log.Println("Results:", results)
 			log.Println("Results written to", outputFileName)
-
 			log.Println("EVALUATION FINISHED!")
 		},
 	}

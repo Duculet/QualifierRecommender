@@ -1,5 +1,5 @@
 .DS_Store
-Qrec*
+Q*
 .gitignore
 testdata/*.tsv*
 testdata/pbfiles
