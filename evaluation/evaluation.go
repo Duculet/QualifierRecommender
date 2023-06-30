@@ -11,38 +11,70 @@ import (
 	"time"
 )
 
-type evalResult struct {
-	TransID      uint32 // transaction ID (unique for each transaction)
-	LeftOut      string // property that has been left out
-	SetSize      uint16 // number of properties used to generate recommendations (both type and non-type)
-	NumTypes     uint16 // number of type properties
-	NumObjTypes  uint16 // number of object type properties
-	NumSubjTypes uint16 // number of object type properties
-	Rank         uint16 // rank calculated for recommendation, equal to lec(recommendations)+1 if not fully recommendated back
-	HitsAt1      uint8  // rank hits@1, value is 1 if leftOut is first in recommendations, 0 otherwise
-	HitsAt5      uint8  // rank hits@5, value is 1 if leftOut is in the first 5 recommendations, 0 otherwise
-	HitsAt10     uint8  // rank hits@10, value is 1 if leftOut is in the first 10 recommendations, 0 otherwise
-	Duration     int64  // duration (in nanoseconds) of how long the recommendation took
-	// numLeftOut uint16 // number of properties that have been left out an needed to be recommended back
+type modelResult struct {
+	EvalCount uint64 // number of pairs evaluated
+	EvalTime  int64  // time taken to evaluate all pairs
 }
 
-// Evaluate will run the evaluation process for the given workflow and testset.
-// The results will be written to the given output file.
-func EvaluateDataset(model *schematree.SchemaTree, workflow *strategy.Workflow, testset string, limitScan int, verbose bool) []evalResult {
+type evalResult struct {
+	TransID      uint32   // transaction ID (unique for each transaction)
+	SetSize      uint16   // number of properties used to generate recommendations (both type and non-type)
+	LeftOut      []string // qualifiers that have been left out
+	NumLeftOut   uint16   // number of properties that have been left out an needed to be recommended back
+	NumTypes     uint16   // number of type properties
+	NumObjTypes  uint16   // number of object type properties
+	NumSubjTypes uint16   // number of object type properties
+	Rank         uint16   // rank calculated for recommendation, equal to lec(recommendations)+1 if not fully recommendated back
+	HitsAt1      uint8    // rank hits@1, value is 1 if leftOut is first in recommendations, 0 otherwise
+	HitsAt5      uint8    // rank hits@5, value is 1 if leftOut is in the first 5 recommendations, 0 otherwise
+	HitsAt10     uint8    // rank hits@10, value is 1 if leftOut is in the first 10 recommendations, 0 otherwise
+	Duration     int64    // duration (in nanoseconds) of how long the recommendation took
+}
+
+// Setup variables for evaluation
+var allRecs schematree.PropertyRecommendations
+var typeRecs schematree.PropertyRecommendations
+var VERBOSE bool
+
+// Evaluate will run the evaluation process for the given model, workflow, testset, and handler.
+// The results will be returned as a list of evaluation results, one for each transaction.
+func EvaluateDataset(
+	model *schematree.SchemaTree,
+	workflow *strategy.Workflow,
+	testset, handlerName string,
+	verbose bool,
+) []evalResult {
+
 	var results []evalResult
+	VERBOSE = verbose
+
+	evalStart := time.Now()
 
 	// cache recommendations without any information
 	// this is the baseline
-	t0 := time.Now()
 	instanceAll := schematree.NewInstanceFromInput([]string{}, []string{}, model, true)
-	recommendationsAll := workflow.Recommend(instanceAll)
+	allRecs = workflow.Recommend(instanceAll)
 
 	if verbose {
-		log.Println("All recommendations", recommendationsAll)
-		log.Println("Recommendations", len(recommendationsAll), "for all found in", time.Since(t0))
+		log.Println("All recommendations", allRecs, "\n length", len(allRecs))
+	}
+
+	// depending on evaluation method, use different handlers
+	var handler handlerFunc
+	switch handlerName {
+	case "takeOneButType":
+		handler = takeOneButType
+	case "takeAllButType":
+		handler = takeAllButType
+	case "baseline":
+		handler = baseline
+	default:
+		log.Panicln("Unknown handler", handlerName)
 	}
 
 	// read testset
+	limitScan := 0 // 0 means no limit
+	// summary := readTestSet(testset, limitScan)
 	transIDs, qualifiersList, objTypesList, subjTypesList := readTestSet(testset, limitScan)
 
 	// run for each transaction (line), take one out and evaluate
@@ -70,60 +102,37 @@ func EvaluateDataset(model *schematree.SchemaTree, workflow *strategy.Workflow, 
 			log.Println(len(subjTypes), "Subject types:", subjTypes)
 		}
 
-		// run for each transaction (line), take one out and evaluate
-		for idx, leftOut := range qualifiers {
-			// create a reduced set of qualifiers
-			reducedSet := append([]string{}, qualifiers...)
-			reducedSet = append(reducedSet[:idx], reducedSet[idx+1:]...)
-
-			if verbose {
-				log.Println("")
-				log.Println("Initial set of qualifiers:", qualifiers)
-				log.Println("Length of initial set of qualifiers:", len(qualifiers))
-				log.Println("Reduced set of qualifiers:", reducedSet)
-				log.Println("Evaluating with left out qualifier", leftOut)
-				log.Println("-------------------")
-			}
-
-			// evaluate the reduced set
-			evalTrans := evaluatePair(
-				model, workflow,
-				transID, leftOut,
-				reducedSet, objTypes, subjTypes,
-				recommendationsAll, recommendationsTypes,
-				-1, verbose,
-			)
-
-			// add the evaluation result to the list
-			results = append(results, evalTrans)
+		// construct method that will be used to evaluate each transaction
+		evaluator := func(reduced, leftout []string) evalResult {
+			return evaluatePair(model, workflow, reduced, leftout)
 		}
+
+		// build the callback function for the property summary reader
+		// given a transaction summary, it will use the handler to split
+		// the transaction into a reduced and a leftout set
+		// and then evaluate the reduced set
+		transactionCallback := func(summary transactionSummary) {
+			newResults := handler(summary, evaluator)
+			results = append(results, newResults...)
+		}
+
+		// start the property summary reader
+		numTrans := propertySummaryReader(testset, transactionCallback)
+
+		if verbose {
+			log.Println("Number of transactions:", numTrans)
+			log.Println("Evaluation took", time.Since(evalStart))
+		}
+
 	}
+
 	return results
 }
 
-// evaluatePair will evaluate a pair made of a reduced set of qualifiers / properties and a left out qualifier
-func evaluatePair(
-	model *schematree.SchemaTree,
-	workflow *strategy.Workflow,
-	transID uint32, leftOut string,
-	reducedSet, objTypes, subjTypes []string,
-	allRecs, typeRecs schematree.PropertyRecommendations,
-	limitRecs int, verbose bool,
-) evalResult {
-
-	types := append(objTypes, subjTypes...)
-	instance := schematree.NewInstanceFromInput(reducedSet, types, model, true)
-
-	evalStart := time.Now()
-	recommendation := workflow.Recommend(instance)
-	if verbose {
-		log.Println("Recommendations", len(recommendation))
-		log.Println("Recommendation took", time.Since(evalStart))
-	}
-
+func finalRecommendations(fullRecs, typeRecs, allRecs schematree.PropertyRecommendations, limitRecs int) (int, []string) {
 	existsRec := make(map[string]bool)
 	outputRecs := make([]string, 0)
-	for _, item := range recommendation {
+	for _, item := range fullRecs {
 		if len(outputRecs) >= limitRecs && limitRecs != -1 {
 			break
 		}
@@ -158,15 +167,43 @@ func evaluatePair(
 		}
 	}
 
-	// check if the recommendation contains the leftOut qualifier
+	return len(outputRecs), outputRecs
+}
+
+// evaluatePair will evaluate a pair made of a reduced set of qualifiers / properties and a left out qualifier
+func evaluatePair(
+	model *schematree.SchemaTree,
+	workflow *strategy.Workflow,
+	reducedSet, leftoutSet []string,
+) evalResult {
+
+	types := []string{} // the types are included in the reduced set (done by handler)
+	instance := schematree.NewInstanceFromInput(reducedSet, types, model, true)
+	fullRecs := workflow.Recommend(instance)
+
+	if VERBOSE {
+		log.Println("Full recommendations", fullRecs, "\n length", len(fullRecs))
+	}
+
+	// get the final recommendations
+	_, outputRecs := finalRecommendations(fullRecs, typeRecs, allRecs, -1)
+
+	// check if the recommendation contains the left out qualifiers
 	rankLeftOut := 5843 // if not found, set to high value (for debugging)
-	for idx, item := range outputRecs {
-		if verbose {
-			log.Println("Checking", item, "against", leftOut)
-		}
-		if item == leftOut {
-			rankLeftOut = idx + 1 // set the rank
-			break
+	for _, lop := range leftoutSet {
+		for idx, item := range outputRecs {
+			if VERBOSE {
+				log.Println("Checking", item, "against", lop)
+			}
+			if item == lop {
+				// keep the smallest rank of the left out qualifiers
+				// in order to have the best rank
+				rank := idx + 1
+				if rank < rankLeftOut {
+					rankLeftOut = rank // set the rank
+				}
+				break
+			}
 		}
 	}
 
@@ -182,37 +219,30 @@ func evaluatePair(
 		hitsAt10 = 1
 	}
 
-	evalDuration := time.Since(evalStart)
-
-	if verbose {
+	if VERBOSE {
 		log.Println(len(outputRecs), "recommendations full info")
 		log.Println(len(outputRecs), "recommendations full info after adding types")
 		log.Println(len(outputRecs), "recommendations full info after adding types and others")
 		log.Println("Recommendations full info:", outputRecs)
-		log.Println("Rank of left out qualifier", leftOut, "is", rankLeftOut)
+		log.Println("Best rank of left out qualifiers", leftoutSet, "is", rankLeftOut)
 		log.Println("Rank @1:", hitsAt1)
 		log.Println("Rank @5:", hitsAt5)
 		log.Println("Rank @10:", hitsAt10)
-		log.Println("Evaluation took", evalDuration)
 	}
 
 	return evalResult{
-		TransID:      transID,
-		LeftOut:      leftOut,
-		SetSize:      uint16(len(reducedSet) + len(types)),
-		NumTypes:     uint16(len(types)),
-		NumObjTypes:  uint16(len(objTypes)),
-		NumSubjTypes: uint16(len(subjTypes)),
-		Rank:         uint16(rankLeftOut),
-		HitsAt1:      hitsAt1,
-		HitsAt5:      hitsAt5,
-		HitsAt10:     hitsAt10,
-		Duration:     evalDuration.Nanoseconds(),
+		LeftOut:  leftoutSet,
+		SetSize:  uint16(len(reducedSet) + len(types)),
+		NumTypes: uint16(len(types)),
+		Rank:     uint16(rankLeftOut),
+		HitsAt1:  hitsAt1,
+		HitsAt5:  hitsAt5,
+		HitsAt10: hitsAt10,
 	}
 }
 
-func categorizeItems(items []string) ([]string, []string, []string) {
-	var qualifiers, objTypes, subjTypes []string
+func categorizeItems(items []string) (qualifiers, objTypes, subjTypes []string) {
+
 	for _, item := range items {
 		if strings.HasPrefix(item, "P") {
 			qualifiers = append(qualifiers, item)
@@ -228,51 +258,15 @@ func categorizeItems(items []string) ([]string, []string, []string) {
 			log.Panicln("Unknown item", item)
 		}
 	}
-	return qualifiers, objTypes, subjTypes
-}
-
-// readTestSet will read the test set file
-// each line is a transaction
-// each transaction is a list of qualifiers separated by a space
-// returns lists of transaction IDs, qualifiers, object types and subject types
-// (IDEA) func readTestSet(filename string, limitScan int) map[uint8][][]string {
-// it will return a map of transaction IDs to three lists of qualifiers, object types and subject types
-func readTestSet(filename string, limitScan int) ([]uint32, [][]string, [][]string, [][]string) {
-	// load the testset
-	testsetFile, err := os.Open(filename)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer testsetFile.Close()
-
-	// var transactions map[uint8][][]string
-	var tranIDs []uint32
-	var qualifiersList, objTypesList, subjTypesList [][]string
-
-	tsvScanner := bufio.NewScanner(testsetFile)
-	for transID := 0; tsvScanner.Scan() && (transID < limitScan || limitScan == 0); transID++ {
-		line := tsvScanner.Text()
-		items := strings.Split(line, "\t")
-
-		// categorize the items
-		qualifiers, objTypes, subjTypes := categorizeItems(items)
-
-		// (IDEA) append the items to the transactions map
-		// transactions[uint8(transID)] = [][]string{qualifiers, objTypes, subjTypes}
-
-		// append the items to the lists
-		tranIDs = append(tranIDs, uint32(transID))
-		qualifiersList = append(qualifiersList, qualifiers)
-		objTypesList = append(objTypesList, objTypes)
-		subjTypesList = append(subjTypesList, subjTypes)
-	}
-
-	return tranIDs, qualifiersList, objTypesList, subjTypesList
+	return
 }
 
 // WriteResultsToFile will output the entire evalResult array to a json file
-func WriteResultsToFile(filename string, results []evalResult) string {
-	f, err := os.Create(filename + ".json")
+func WriteResultsToFile(filename string, results []evalResult) (outputfile string) {
+
+	outputfile = filename + ".json"
+
+	f, err := os.Create(outputfile)
 	if err != nil {
 		log.Fatalln("Could not create / open .json file")
 	}
@@ -290,5 +284,5 @@ func WriteResultsToFile(filename string, results []evalResult) string {
 		log.Panicln("Could not write evalResult to file")
 	}
 
-	return filename + ".json"
+	return
 }

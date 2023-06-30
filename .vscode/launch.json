@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Launch ePNAN",
             "type": "go",
@@ -25,7 +26,7 @@
         },
         
         {
-            "name": "P9979 Evaluate (small)",
+            "name": "P9979 Evaluate (small tOBT)",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -38,6 +39,29 @@
                 "testdata/splits/TT/test/P9979.tsv",
                 "-o",
                 "testdata/splits/TT/eval/",
+                "-k",
+                "takeOneButType",
+                "-v",
+                "true"
+            ]
+        },
+
+        {
+            "name": "P9979 Evaluate (small baseline)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "evaluate",
+                "-m",
+                "testdata/splits/TT/train/P9979.tsv.schemaTree.typed.pb",
+                "-d",
+                "testdata/splits/TT/test/P9979.tsv",
+                "-o",
+                "testdata/splits/TT/eval/",
+                "-k",
+                "baseline",
                 "-v",
                 "true"
             ]
