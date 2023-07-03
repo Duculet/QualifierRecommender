@@ -1,5 +1,7 @@
 package evaluation
 
+import "RecommenderServer/schematree"
+
 type handlerFunc func(transactionSummary, func(reducedSet []string, leftOut string) evalResult) []evalResult
 
 // This is the baseline handler
@@ -10,7 +12,6 @@ func baseline(
 ) (results []evalResult) {
 
 	// get recommendations without any information
-	// also take one out version
 	for _, leftOut := range s.qualifiers {
 		newResult := evaluator([]string{}, leftOut)
 		results = append(results, newResult)
@@ -30,6 +31,12 @@ func takeOneButType(
 ) (results []evalResult) {
 
 	types := append(s.objTypes, s.subjTypes...)
+
+	// if there are types, obtain recs with types only first
+	if len(types) != 0 {
+		instance := schematree.NewInstanceFromInput([]string{}, types, MODEL, true)
+		typeRecs = WORKFLOW.Recommend(instance)
+	}
 
 	// take one qualifier out and evaluate with the rest, including the types
 	for idx, leftOut := range s.qualifiers {

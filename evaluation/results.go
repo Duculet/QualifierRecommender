@@ -35,7 +35,9 @@ type evalResult struct {
 }
 
 // Setup variables for evaluation
-var allRecs, typeRecs schematree.PropertyRecommendations
+var MODEL *schematree.SchemaTree
+var WORKFLOW *strategy.Workflow
+var allRecs, typeRecs, fullRecs schematree.PropertyRecommendations
 var qualifierPop map[string]uint64
 var evalCount, evalTime int64
 var VERBOSE bool
@@ -49,7 +51,8 @@ func EvaluateDataset(
 	verbose bool,
 ) (results []evalResult) {
 
-	VERBOSE = verbose
+	// save to global variables
+	MODEL, WORKFLOW, VERBOSE = model, workflow, verbose
 	qualifierPop = make(map[string]uint64)
 
 	evalStart := time.Now()
@@ -114,9 +117,12 @@ func evaluatePair(
 	leftOut string,
 ) evalResult {
 
-	types := []string{} // the types are included in the reduced set (done by handler)
-	instance := schematree.NewInstanceFromInput(reducedSet, types, model, true)
-	fullRecs := workflow.Recommend(instance)
+	// get recommendation only if the reduced set is not empty
+	if len(reducedSet) != 0 {
+		types := []string{} // the types are included in the reduced set (done by handler)
+		instance := schematree.NewInstanceFromInput(reducedSet, types, model, true)
+		fullRecs = workflow.Recommend(instance)
+	}
 
 	if VERBOSE {
 		log.Println("Full recommendations", fullRecs, "\n length", len(fullRecs))
