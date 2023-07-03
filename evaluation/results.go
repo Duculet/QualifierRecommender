@@ -15,11 +15,10 @@ import (
 
 type modelResult struct {
 	ModelID      string            // model ID
-	Handler      string            // handler used
-	QualifierPop map[string]uint64 // qualifier popularity (number of times it appears in the test set)
-	EvalResults  []evalResult      // evaluation results
 	EvalCount    int64             // number of pairs evaluated
 	EvalTime     int64             // time taken to evaluate all pairs
+	QualifierPop map[string]uint64 // qualifier popularity (number of times it appears in the test set)
+	EvalResults  []evalResult      // evaluation results
 }
 
 type evalResult struct {
@@ -181,10 +180,11 @@ func WriteResultsToFile(filename string, evalResults []evalResult, compress bool
 	// modelID should be the basename of the model file (without the extension)
 	modelID := strings.Split(filepath.Base(filename), ".")[0]
 	modelResult := modelResult{
-		ModelID:     modelID,
-		EvalResults: evalResults,
-		EvalCount:   evalCount,
-		EvalTime:    evalTime,
+		ModelID:      modelID,
+		QualifierPop: qualifierPop,
+		EvalResults:  evalResults,
+		EvalCount:    evalCount,
+		EvalTime:     evalTime,
 	}
 
 	f, err := os.Create(outputfile)
@@ -194,6 +194,17 @@ func WriteResultsToFile(filename string, evalResults []evalResult, compress bool
 	defer f.Close()
 
 	if compress {
+		g := gzip.NewWriter(f)
+		defer g.Close()
+
+		e := json.NewEncoder(g)
+
+		// write the results
+		err = e.Encode(modelResult)
+		if err != nil {
+			log.Panicln("Could not encode results to json")
+		}
+	} else {
 		w := bufio.NewWriter(f)
 		defer w.Flush()
 
@@ -206,17 +217,6 @@ func WriteResultsToFile(filename string, evalResults []evalResult, compress bool
 		_, err = w.Write(out)
 		if err != nil {
 			log.Panicln("Could not write results to file")
-		}
-	} else {
-		g := gzip.NewWriter(f)
-		defer g.Close()
-
-		e := json.NewEncoder(g)
-
-		// write the results
-		err = e.Encode(modelResult)
-		if err != nil {
-			log.Panicln("Could not encode results to json")
 		}
 	}
 

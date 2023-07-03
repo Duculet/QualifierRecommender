@@ -10,15 +10,21 @@
 
 echo "Evaluation has started!"
 
-# if argument is not provided, set default value to TT
+# if argument is not provided, set default value to string "TT"
 # else set the experiment to argument value
 experiment=${1:-TT}
 
-# if argument is not provided, set default value to 100
-# else set limit to argument value
-limit_t=${2:-100}
+# if argument is not provided, set default value to baseline
+# else set the handler to argument value
+handler=${2:-baseline}
 
-echo "Experiment $experiment begins with limit $limit_t"
+# if argument is not provided, set default value to 0
+# else set limit to argument value
+limit_t=${3:-0}
+
+echo "Experiment $experiment begins"
+echo "Handler $handler is used"
+echo "Limit $limit_t is set"
 
 models_dir=$HOME/experiments/$experiment/pbfiles/train
 datasets_dir=$HOME/experiments/$experiment/tsvfiles/test
@@ -36,7 +42,8 @@ do
     model=$models_dir/$(basename $dataset).schemaTree.typed.pb
     echo "Running $model"
     echo "Against $dataset"
-    $HOME/QualRecommender evaluate -m $model -d $dataset -o $output_dir 
+    echo "With $handler"
+    $HOME/QualRecommender evaluate -m $model -d $dataset -o $output_dir -k $handler
     echo "Saved in $output_dir"
 done
 
