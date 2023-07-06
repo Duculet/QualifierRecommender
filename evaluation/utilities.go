@@ -12,12 +12,8 @@ func categorizeItems(items []string) (qualifiers, objTypes, subjTypes []string) 
 		if strings.HasPrefix(item, "P") {
 			qualifiers = append(qualifiers, item)
 		} else if strings.HasPrefix(item, "o/") {
-			// remove the o/ prefix
-			item = strings.TrimPrefix(item, "o/")
 			objTypes = append(objTypes, item)
 		} else if strings.HasPrefix(item, "s/") {
-			// remove the s/ prefix
-			item = strings.TrimPrefix(item, "s/")
 			subjTypes = append(subjTypes, item)
 		} else {
 			log.Panicln("Unknown item", item)
