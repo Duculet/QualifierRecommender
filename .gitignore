@@ -5,3 +5,5 @@ testdata/*.tsv*
 testdata/pbfiles
 testdata/splits
 backups
+evalsets
+*.tex
