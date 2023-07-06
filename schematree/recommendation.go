@@ -69,24 +69,6 @@ func (tree *SchemaTree) BuildPropertyList(properties []string, types []string) I
 		}
 	}
 
-	// Find IItems of objtype strings
-	for _, tString := range types {
-		tString := "o/" + tString
-		p, ok := tree.PropMap.GetIfExisting(tString)
-		if ok {
-			list = append(list, p)
-		}
-	}
-
-	// Find IItems of subjtype strings
-	for _, tString := range types {
-		tString := "s/" + tString
-		p, ok := tree.PropMap.GetIfExisting(tString)
-		if ok {
-			list = append(list, p)
-		}
-	}
-
 	return list
 }
 
