@@ -62,7 +62,6 @@ func (tree *SchemaTree) BuildPropertyList(properties []string, types []string) I
 
 	// Find IItems of type strings
 	for _, tString := range types {
-		tString := "t#" + tString
 		p, ok := tree.PropMap.GetIfExisting(tString)
 		if ok {
 			list = append(list, p)
