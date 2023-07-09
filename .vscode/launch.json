@@ -6,6 +6,46 @@
     "configurations": [
 
         {
+            "name": "P5192 Evaluate (S base)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "evaluate",
+                "-m",
+                "testdata/splits/TT/train/P5192.tsv.schemaTree.typed.pb",
+                "-d",
+                "testdata/splits/TT/test/P5192.tsv",
+                "-o",
+                "testdata/splits/TT/eval/",
+                "-k",
+                "baseline",
+                "-c=false"
+            ]
+        },
+        
+        {
+            "name": "P5192 Evaluate (S tABT)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "evaluate",
+                "-m",
+                "testdata/splits/TT/train/P5192.tsv.schemaTree.typed.pb",
+                "-d",
+                "testdata/splits/TT/test/P5192.tsv",
+                "-o",
+                "testdata/splits/TT/eval/",
+                "-k",
+                "takeAllButType",
+                "-c=false"
+            ]
+        },
+
+        {
             "name": "P5192 Evaluate (S tOBT)",
             "type": "go",
             "request": "launch",

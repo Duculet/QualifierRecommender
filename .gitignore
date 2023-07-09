@@ -7,3 +7,4 @@ testdata/splits
 backups
 evalsets
 *.tex
+evaluation/python/statistics
