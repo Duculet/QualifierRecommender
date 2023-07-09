@@ -14,10 +14,10 @@ func baseline(
 	// get recommendations without any information
 	for _, leftOut := range s.qualifiers {
 		newResult := evaluator([]string{}, leftOut)
-		results = append(results, newResult)
-
 		// fill in remaining information
 		newResult.TransID = s.transID
+
+		results = append(results, newResult)
 	}
 
 	return
