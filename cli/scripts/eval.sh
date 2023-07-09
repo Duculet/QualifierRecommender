@@ -28,7 +28,7 @@ echo "Limit $limit_t is set"
 
 models_dir=$HOME/experiments/$experiment/pbfiles/train
 datasets_dir=$HOME/experiments/$experiment/tsvfiles/test
-output_dir=$HOME/experiments/$experiment/evaluation/limit_$limit_t
+output_dir=$HOME/experiments/evaluation/limit_$limit_t/$handler/$experiment
 
 # if output directory does not exist, create it
 if [ ! -d "$output_dir" ]
