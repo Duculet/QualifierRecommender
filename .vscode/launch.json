@@ -6,6 +6,23 @@
     "configurations": [
 
         {
+            "name": "Extraction",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": [
+                "extract",
+                "-f",
+                "wikidata-testdata-all.json.bz2",
+                "-d",
+                "testdata/",
+                "-o=true",
+                "-s=true"
+            ]
+        },
+
+        {
             "name": "P5192 Evaluate (S base)",
             "type": "go",
             "request": "launch",

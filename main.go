@@ -121,10 +121,14 @@ func main() {
 	cmdRoot.PersistentFlags().StringVar(&traceFileName, "trace", "", "write execution trace to `file`")
 	cmdRoot.PersistentFlags().BoolVarP(&measureTime, "time", "t", false, "measure time of command execution")
 
+	// add subcommands
 	cmdRoot.AddCommand(cli.CommandWikiServe())
 	cmdRoot.AddCommand(cli.CommandWikiServes())
 	cmdRoot.AddCommand(cli.CommandWikiBuild())
 	cmdRoot.AddCommand(cli.CommandWikiEvaluate())
+	cmdRoot.AddCommand(cli.CommandExtract())
+	cmdRoot.AddCommand(cli.CommandSplit())
+
 	// Start the CLI application
 	err := cmdRoot.Execute()
 	if err != nil {
