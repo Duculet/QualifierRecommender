@@ -7,4 +7,6 @@ testdata/splits
 backups
 evalsets
 *.tex
-evaluation/python/statistics
+evaluation/python/statistics/generals
+evaluation/python/__pycache__
+evaluation/python/.ipynb_checkpoints

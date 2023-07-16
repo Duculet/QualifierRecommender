@@ -119,7 +119,8 @@
                 "-o",
                 "testdata/splits/TT/eval/",
                 "-k",
-                "takeOneButType"
+                "takeOneButType",
+                "-c=false"
             ]
         },
 
