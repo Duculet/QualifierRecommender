@@ -28,7 +28,7 @@ type evalResult struct {
 	NumTypes     uint16 // number of type properties
 	NumObjTypes  uint16 // number of object type properties
 	NumSubjTypes uint16 // number of object type properties
-	Rank         uint16 // rank calculated for recommendation, equal to lec(recommendations)+1 if not fully recommendated back
+	Rank         uint16 // rank calculated for recommendation, equal to 5843 if not fully recommendated back
 	HitsAt1      uint8  // rank hits@1, value is 1 if leftOut is first in recommendations, 0 otherwise
 	HitsAt5      uint8  // rank hits@5, value is 1 if leftOut is in the first 5 recommendations, 0 otherwise
 	HitsAt10     uint8  // rank hits@10, value is 1 if leftOut is in the first 10 recommendations, 0 otherwise
