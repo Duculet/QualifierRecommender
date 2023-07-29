@@ -45,6 +45,8 @@ Create an index using a wikidata dump (download from https://dumps.wikimedia.org
 
 ### Starting the server ###
 
+#### One model at a time ####
+
 Start the server (for testing purposes)
 ```bash
 ./RecommenderServer serve P97.tsv.schemaTree.typed.pb
@@ -70,6 +72,28 @@ Response:
 ]}
 ```
 
+#### Multiple models at a time ####
+##### Generally used for qualifier recommendations #####
+
+Similar to the above, but with multiple models. The server will then use the model which is most appropriate for the request. This is determined by one of the parameters in the request. Moreover, this server can also accept more type information in the request, which is used to determine the most appropriate recommendation.
+
+Start the server (using all the models in the folder)
+```bash
+./RecommenderServer serves testdata/
+```
+
+Test with a request. This request means that the property P1855 already has the qualifier P1545. It also includes the types of the subject and object of the statement. The subject type is Q5, while the object has two types: Q47461344 and Q7725634. The response includes the recommended qualifiers.
+
+```bash
+curl -d '{"property":"P50", "qualifiers":["P1545"], "subjTypes":["Q5"], "objTypes":["Q47461344", "Q7725634"]}' http://localhost:8080/Qrecommender
+```
+
+Response (just an example structure):
+```json
+{"recommendations":[
+{"qualifier":"P123","probability":0.6},{"qualifier":"P456","probability":0.5},{"property":"P789","probability":0.2},{"property":"P000","probability":0.1}
+]}
+```
 
 ## Setting up on Cloud VPS
 

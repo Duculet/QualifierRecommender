@@ -1,7 +1,6 @@
 # Server Module
 
-The Server Module will serve as thin layer of communication between the outside world and the
-recomender. It sets up an API using a HTTP server for basic communication with JSON.
+The Server Module will serve as thin layer of communication between the outside world and the recommender. It sets up an API using a HTTP server for basic communication with JSON.
 
 ## Endpoints
 
